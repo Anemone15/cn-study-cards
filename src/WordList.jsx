@@ -43,8 +43,18 @@ export default function WordList() {
   useEffect(() => {
     // 単語データ
     fetch("/api/words")
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          console.error("/api/words fetch failed", res.status, res.statusText);
+          return [];
+        }
+        return res.json();
+      })
       .then(data => {
+        if (!Array.isArray(data)) {
+          console.error("/api/words response is not array", data);
+          return;
+        }
         // 例文カード
         let items = [];
         data.forEach((entry, idx) => {
@@ -96,11 +106,23 @@ export default function WordList() {
         setJpOrder(jpItems.map((item) => item.id));
         setRandomJpOrder([]);
         setShow({});
+      })
+      .catch(err => {
+        console.error("/api/words fetch error", err);
       });
     // 暗記度データ
     fetch("/api/status")
-      .then(res => res.json())
-      .then(data => setStatus(data || {}));
+      .then(res => {
+        if (!res.ok) {
+          console.error("/api/status fetch failed", res.status, res.statusText);
+          return {};
+        }
+        return res.json();
+      })
+      .then(data => setStatus(data || {}))
+      .catch(err => {
+        console.error("/api/status fetch error", err);
+      });
   }, []);
 
   const handleShow = (id) => setShow((s) => ({ ...s, [id]: !s[id] }));
@@ -125,8 +147,33 @@ export default function WordList() {
   };
 
 
-  // 並べ替え機能は削除
+  // 並び替え用ランダム順保存
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
 
+  // 並び替えがランダムの場合は依存が変わるたびにシャッフル順を再生成
+  useEffect(() => {
+    if (sortType === "random") {
+      setRandomOrder(shuffle(order));
+      setRandomWordOrder(shuffle(wordOrder));
+      setRandomPinyinOrder(shuffle(pinyinOrder));
+      setRandomJpOrder(shuffle(jpOrder));
+    }
+  }, [sortType, order, wordOrder, pinyinOrder, jpOrder, filter, search]);
+
+  // タブ切り替え時にshow状態をリセット
+  useEffect(() => {
+    setShow({});
+  }, [tab]);
+
+
+  // タブ切り替えは return の JSX 内で行うため、ここでは削除します。
 
   // 例文カード用フィルタ
   let filteredOrder = order.filter((id) => {
@@ -149,7 +196,7 @@ export default function WordList() {
       return sa - sb;
     });
   } else if (sortType === "random") {
-    const baseOrder = randomOrder.length === order.length ? randomOrder : order;
+    const baseOrder = randomOrder.length === order.length ? randomOrder : shuffle(order);
     filteredOrder = baseOrder.filter((id) => filteredOrder.includes(id));
   }
 
@@ -173,7 +220,7 @@ export default function WordList() {
       return sa - sb;
     });
   } else if (sortType === "random") {
-    const baseOrder = randomWordOrder.length === wordOrder.length ? randomWordOrder : wordOrder;
+    const baseOrder = randomWordOrder.length === wordOrder.length ? randomWordOrder : shuffle(wordOrder);
     filteredWordOrder = baseOrder.filter((id) => filteredWordOrder.includes(id));
   }
 
@@ -197,7 +244,7 @@ export default function WordList() {
       return sa - sb;
     });
   } else if (sortType === "random") {
-    const baseOrder = randomPinyinOrder.length === pinyinOrder.length ? randomPinyinOrder : pinyinOrder;
+    const baseOrder = randomPinyinOrder.length === pinyinOrder.length ? randomPinyinOrder : shuffle(pinyinOrder);
     filteredPinyinOrder = baseOrder.filter((id) => filteredPinyinOrder.includes(id));
   }
 
@@ -221,7 +268,7 @@ export default function WordList() {
       return sa - sb;
     });
   } else if (sortType === "random") {
-    const baseOrder = randomJpOrder.length === jpOrder.length ? randomJpOrder : jpOrder;
+    const baseOrder = randomJpOrder.length === jpOrder.length ? randomJpOrder : shuffle(jpOrder);
     filteredJpOrder = baseOrder.filter((id) => filteredJpOrder.includes(id));
   }
 
@@ -244,26 +291,79 @@ export default function WordList() {
           保存しました
         </div>
       )}
-      {/* ...existing code... */}
+
+      {/* タブ切り替えUI */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button type="button" onClick={() => setTab("sentence")} style={{ background: tab === "sentence" ? "#1976d2" : "#eee", color: tab === "sentence" ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "6px 16px" }}>例文</button>
+        <button type="button" onClick={() => setTab("word")} style={{ background: tab === "word" ? "#1976d2" : "#eee", color: tab === "word" ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "6px 16px" }}>単語</button>
+        <button type="button" onClick={() => setTab("pinyin")} style={{ background: tab === "pinyin" ? "#1976d2" : "#eee", color: tab === "pinyin" ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "6px 16px" }}>拼音</button>
+        <button type="button" onClick={() => setTab("jp")} style={{ background: tab === "jp" ? "#1976d2" : "#eee", color: tab === "jp" ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "6px 16px" }}>日本語訳</button>
+      </div>
+
+      {/* 並び替えUI */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ marginRight: 8 }}>並び替え:</label>
+        <select
+          value={sortType}
+          onChange={e => {
+            const val = e.target.value;
+            setSortType(val);
+            if (val !== "random") {
+              setRandomOrder([]);
+              setRandomWordOrder([]);
+              setRandomPinyinOrder([]);
+              setRandomJpOrder([]);
+            }
+          }}
+          style={{ padding: "4px 12px", fontSize: 16, borderRadius: 4, border: "1px solid #ccc" }}
+        >
+          <option value="json">json順</option>
+          <option value="random">ランダム</option>
+          <option value="status">暗記度順</option>
+        </select>
+      </div>
+
+      {/* フィルタ（暗記度） */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {STATUS_LABELS.map((label, i) => (
+          <button
+            key={i}
+            onClick={() => setFilter(f => f.map((v, idx) => idx === i ? !v : v))}
+            style={{
+              background: filter[i] ? "#1976d2" : "#eee",
+              color: filter[i] ? "#fff" : "#333",
+              border: "none",
+              borderRadius: 4,
+              padding: "4px 10px"
+            }}
+            title={STATUS_LABELS_TEXT[i]}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 検索欄 */}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="検索ワードを入力"
+          style={{ width: "100%", padding: "8px", fontSize: 16, borderRadius: 4, border: "1px solid #ccc" }}
+        />
+      </div>
+
+      {/* カード表示部：タブで切り替え */}
+      {tab === "sentence" ? (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {filteredOrder.map((id) => {
             const item = words.find((w) => w.id === id);
             if (!item) return null;
             return (
-              <li
-                key={id}
-                style={{
-                  background: "#f9f9f9",
-                  margin: "8px 0",
-                  padding: 16,
-                  borderRadius: 8,
-                  boxShadow: "0 1px 4px #0001"
-                }}
-              >
+              <li key={id} style={{ background: "#f9f9f9", margin: "8px 0", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #0001" }}>
                 <div style={{ fontWeight: "bold", fontSize: 18 }}>{item.中国語}</div>
-                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>
-                  {show[id] ? "隠す" : "ピンイン・訳を表示"}
-                </button>
+                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>{show[id] ? "隠す" : "ピンイン・訳を表示"}</button>
                 {show[id] && (
                   <div style={{ margin: "8px 0" }}>
                     <div>拼音: {item.拼音}</div>
@@ -272,25 +372,10 @@ export default function WordList() {
                 )}
                 <div style={{ marginTop: 8 }}>
                   {STATUS_LABELS.map((label, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleStatus(id, i)}
-                      style={{
-                        marginRight: 8,
-                        background: status[id] === i ? "#1976d2" : "#eee",
-                        color: status[id] === i ? "#fff" : "#333",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "4px 10px"
-                      }}
-                    >
-                      {label}
-                    </button>
+                    <button key={i} onClick={() => handleStatus(id, i)} style={{ marginRight: 8, background: status[id] === i ? "#1976d2" : "#eee", color: status[id] === i ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "4px 10px" }}>{label}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                  単語: {item.単語} / 品詞: {item.品詞}
-                </div>
+                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>単語: {item.単語} / 品詞: {item.品詞}</div>
               </li>
             );
           })}
@@ -301,46 +386,25 @@ export default function WordList() {
             const item = wordCards.find((w) => w.id === id);
             if (!item) return null;
             return (
-              <li
-                key={id}
-                style={{
-                  background: "#f9f9f9",
-                  margin: "8px 0",
-                  padding: 16,
-                  borderRadius: 8,
-                  boxShadow: "0 1px 4px #0001"
-                }}
-              >
+              <li key={id} style={{ background: "#f9f9f9", margin: "8px 0", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #0001" }}>
                 <div style={{ fontWeight: "bold", fontSize: 18 }}>{item.単語}</div>
-                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>
-                  {show[id] ? "隠す" : "ピンイン・訳を表示"}
-                </button>
+                <div style={{ margin: "8px 0" }}>
+                  <span style={{ marginRight: 16 }}>拼音: <b>{item.拼音}</b></span>
+                  <span style={{ marginRight: 16 }}>日本語訳: <b>{item.日本語訳}</b></span>
+                  <span>品詞: <b>{item.品詞}</b></span>
+                </div>
+                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>{show[id] ? "隠す" : "詳細を表示"}</button>
                 {show[id] && (
-                  <div style={{ margin: "8px 0" }}>
+                  <div style={{ margin: "8px 0", color: "#555" }}>
                     <div>拼音: {item.拼音}</div>
                     <div>日本語訳: {item.日本語訳}</div>
+                    <div>品詞: {item.品詞}</div>
                   </div>
                 )}
                 <div style={{ marginTop: 8 }}>
                   {STATUS_LABELS.map((label, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleStatus(id, i)}
-                      style={{
-                        marginRight: 8,
-                        background: status[id] === i ? "#1976d2" : "#eee",
-                        color: status[id] === i ? "#fff" : "#333",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "4px 10px"
-                      }}
-                    >
-                      {label}
-                    </button>
+                    <button key={i} onClick={() => handleStatus(id, i)} style={{ marginRight: 8, background: status[id] === i ? "#1976d2" : "#eee", color: status[id] === i ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "4px 10px" }}>{label}</button>
                   ))}
-                </div>
-                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                  品詞: {item.品詞}
                 </div>
               </li>
             );
@@ -352,20 +416,9 @@ export default function WordList() {
             const item = pinyinCards.find((w) => w.id === id);
             if (!item) return null;
             return (
-              <li
-                key={id}
-                style={{
-                  background: "#f9f9f9",
-                  margin: "8px 0",
-                  padding: 16,
-                  borderRadius: 8,
-                  boxShadow: "0 1px 4px #0001"
-                }}
-              >
+              <li key={id} style={{ background: "#f9f9f9", margin: "8px 0", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #0001" }}>
                 <div style={{ fontWeight: "bold", fontSize: 18 }}>{item.拼音}</div>
-                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>
-                  {show[id] ? "隠す" : "単語・訳を表示"}
-                </button>
+                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>{show[id] ? "隠す" : "単語・訳を表示"}</button>
                 {show[id] && (
                   <div style={{ margin: "8px 0" }}>
                     <div>単語: {item.単語}</div>
@@ -374,49 +427,23 @@ export default function WordList() {
                 )}
                 <div style={{ marginTop: 8 }}>
                   {STATUS_LABELS.map((label, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleStatus(id, i)}
-                      style={{
-                        marginRight: 8,
-                        background: status[id] === i ? "#1976d2" : "#eee",
-                        color: status[id] === i ? "#fff" : "#333",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "4px 10px"
-                      }}
-                    >
-                      {label}
-                    </button>
+                    <button key={i} onClick={() => handleStatus(id, i)} style={{ marginRight: 8, background: status[id] === i ? "#1976d2" : "#eee", color: status[id] === i ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "4px 10px" }}>{label}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                  品詞: {item.品詞}
-                </div>
+                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>品詞: {item.品詞}</div>
               </li>
             );
           })}
         </ul>
-      ) : (
+      ) : tab === "jp" ? (
         <ul style={{ listStyle: "none", padding: 0 }}>
           {filteredJpOrder.map((id) => {
             const item = jpCards.find((w) => w.id === id);
             if (!item) return null;
             return (
-              <li
-                key={id}
-                style={{
-                  background: "#f9f9f9",
-                  margin: "8px 0",
-                  padding: 16,
-                  borderRadius: 8,
-                  boxShadow: "0 1px 4px #0001"
-                }}
-              >
+              <li key={id} style={{ background: "#f9f9f9", margin: "8px 0", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #0001" }}>
                 <div style={{ fontWeight: "bold", fontSize: 18 }}>{item.日本語訳}</div>
-                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>
-                  {show[id] ? "隠す" : "単語・拼音を表示"}
-                </button>
+                <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>{show[id] ? "隠す" : "単語・拼音を表示"}</button>
                 {show[id] && (
                   <div style={{ margin: "8px 0" }}>
                     <div>単語: {item.単語}</div>
@@ -425,30 +452,15 @@ export default function WordList() {
                 )}
                 <div style={{ marginTop: 8 }}>
                   {STATUS_LABELS.map((label, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleStatus(id, i)}
-                      style={{
-                        marginRight: 8,
-                        background: status[id] === i ? "#1976d2" : "#eee",
-                        color: status[id] === i ? "#fff" : "#333",
-                        border: "none",
-                        borderRadius: 4,
-                        padding: "4px 10px"
-                      }}
-                    >
-                      {label}
-                    </button>
+                    <button key={i} onClick={() => handleStatus(id, i)} style={{ marginRight: 8, background: status[id] === i ? "#1976d2" : "#eee", color: status[id] === i ? "#fff" : "#333", border: "none", borderRadius: 4, padding: "4px 10px" }}>{label}</button>
                   ))}
                 </div>
-                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                  品詞: {item.品詞}
-                </div>
+                <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>品詞: {item.品詞}</div>
               </li>
             );
           })}
         </ul>
-      )
+      ) : null}
     </div>
   );
 }
