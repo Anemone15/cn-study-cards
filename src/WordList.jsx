@@ -35,8 +35,9 @@ export default function WordList() {
   const [sortType, setSortType] = useState("json"); // "json" | "random" | "status"
   const [search, setSearch] = useState(""); // 追加: 検索ワード
   const [tab, setTab] = useState("sentence"); // sentence, word, pinyin, jp
-  // 保存完了通知
+  // 保存完了通知・失敗通知
   const [saveStatus, setSaveStatus] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
 
   // サーバーから単語データ・暗記度データを取得
@@ -137,10 +138,17 @@ export default function WordList() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next)
       })
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("保存失敗");
+          return res.json();
+        })
         .then(() => {
           setSaveStatus(true);
-          setTimeout(() => setSaveStatus(false), 1000); // 1秒表示
+          setTimeout(() => setSaveStatus(false), 1000);
+        })
+        .catch(() => {
+          setSaveError(true);
+          setTimeout(() => setSaveError(false), 1000);
         });
       return next;
     });
@@ -274,7 +282,7 @@ export default function WordList() {
 
   return (
     <div>
-      {/* 保存完了通知 */}
+      {/* 保存完了通知・失敗通知 */}
       {saveStatus && (
         <div style={{
           position: "fixed",
@@ -289,6 +297,22 @@ export default function WordList() {
           zIndex: 1000
         }}>
           保存しました
+        </div>
+      )}
+      {saveError && (
+        <div style={{
+          position: "fixed",
+          top: 20,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#d32f2f",
+          color: "#fff",
+          padding: "8px 24px",
+          borderRadius: 8,
+          boxShadow: "0 2px 8px #0002",
+          zIndex: 1000
+        }}>
+          保存に失敗しました
         </div>
       )}
 
@@ -388,17 +412,12 @@ export default function WordList() {
             return (
               <li key={id} style={{ background: "#f9f9f9", margin: "8px 0", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #0001" }}>
                 <div style={{ fontWeight: "bold", fontSize: 18 }}>{item.単語}</div>
-                <div style={{ margin: "8px 0" }}>
-                  <span style={{ marginRight: 16 }}>拼音: <b>{item.拼音}</b></span>
-                  <span style={{ marginRight: 16 }}>日本語訳: <b>{item.日本語訳}</b></span>
-                  <span>品詞: <b>{item.品詞}</b></span>
-                </div>
                 <button onClick={() => handleShow(id)} style={{ margin: "8px 0" }}>{show[id] ? "隠す" : "詳細を表示"}</button>
                 {show[id] && (
                   <div style={{ margin: "8px 0", color: "#555" }}>
-                    <div>拼音: {item.拼音}</div>
-                    <div>日本語訳: {item.日本語訳}</div>
-                    <div>品詞: {item.品詞}</div>
+                    <span style={{ marginRight: 16 }}>拼音: <b>{item.拼音}</b></span>
+                    <span style={{ marginRight: 16 }}>日本語訳: <b>{item.日本語訳}</b></span>
+                    <span>品詞: <b>{item.品詞}</b></span>
                   </div>
                 )}
                 <div style={{ marginTop: 8 }}>
