@@ -43,17 +43,17 @@ export default function WordList() {
   // サーバーから単語データ・暗記度データを取得
   useEffect(() => {
     // 単語データ
-    fetch("/api/words")
+    fetch(import.meta.env.VITE_API_BASE_URL + "/words")
       .then(res => {
         if (!res.ok) {
-          console.error("/api/words fetch failed", res.status, res.statusText);
+          console.error("/words fetch failed", res.status, res.statusText);
           return [];
         }
         return res.json();
       })
       .then(data => {
         if (!Array.isArray(data)) {
-          console.error("/api/words response is not array", data);
+          console.error("/words response is not array", data);
           return;
         }
         // 例文カード
@@ -109,20 +109,20 @@ export default function WordList() {
         setShow({});
       })
       .catch(err => {
-        console.error("/api/words fetch error", err);
+        console.error("/words fetch error", err);
       });
     // 暗記度データ
-    fetch("/api/status")
+    fetch(import.meta.env.VITE_API_BASE_URL + "/status")
       .then(res => {
         if (!res.ok) {
-          console.error("/api/status fetch failed", res.status, res.statusText);
+          console.error("/status fetch failed", res.status, res.statusText);
           return {};
         }
         return res.json();
       })
       .then(data => setStatus(data || {}))
       .catch(err => {
-        console.error("/api/status fetch error", err);
+        console.error("/status fetch error", err);
       });
   }, []);
 
@@ -133,7 +133,7 @@ export default function WordList() {
     setStatus((s) => {
       const next = { ...s, [id]: val };
       // サーバーへ保存
-      fetch("/api/status", {
+      fetch(import.meta.env.VITE_API_BASE_URL + "/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(next)

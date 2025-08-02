@@ -18,7 +18,8 @@ const WORDS_FILE = path.join(__dirname, '単語例文.json');
 const STATUS_FILE = path.join(__dirname, 'status.json');
 
 // 単語データ取得
-app.get('/api/words', (req, res) => {
+// /api/words および /cn-study-words/api/words の両方で受け付ける
+app.get(['/api/words', '/cn-study-words/api/words'], (req, res) => {
   fs.readFile(WORDS_FILE, 'utf8', (err, data) => {
     if (err) return res.status(500).json({ error: 'words file not found' });
     res.json(JSON.parse(data));
@@ -26,7 +27,7 @@ app.get('/api/words', (req, res) => {
 });
 
 // 暗記度データ取得
-app.get('/api/status', (req, res) => {
+app.get(['/api/status', '/cn-study-words/api/status'], (req, res) => {
   fs.readFile(STATUS_FILE, 'utf8', (err, data) => {
     if (err) return res.json({}); // ファイルがなければ空オブジェクト
     res.json(JSON.parse(data));
@@ -34,15 +35,15 @@ app.get('/api/status', (req, res) => {
 });
 
 // 暗記度データ保存
-app.post('/api/status', (req, res) => {
+app.post(['/api/status', '/cn-study-words/api/status'], (req, res) => {
   fs.writeFile(STATUS_FILE, JSON.stringify(req.body), (err) => {
     if (err) return res.status(500).json({ error: 'failed to save' });
     res.json({ ok: true });
   });
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
-app.get(/.*/, (req, res) => {
+app.use('/cn-study-words', express.static(path.join(__dirname, 'dist')));
+app.get('/cn-study-words/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist/index.html'));
 });
 
