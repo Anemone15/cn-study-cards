@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
       // APIリクエストをNginx（Docker）に転送
       '/cn-study-words/api': {
-        target: 'http://localhost:8080', // Nginxが8080で動いている場合
+        target: 'http://localhost:3001', // server.jsが3001で動いているため
         changeOrigin: true,
         secure: false,
       },

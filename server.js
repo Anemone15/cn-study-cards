@@ -28,16 +28,27 @@ app.get(['/api/words', '/cn-study-words/api/words'], (req, res) => {
 
 // 暗記度データ取得
 app.get(['/api/status', '/cn-study-words/api/status'], (req, res) => {
+  if (!fs.existsSync(STATUS_FILE)) {
+    return res.json({});
+  }
   fs.readFile(STATUS_FILE, 'utf8', (err, data) => {
-    if (err) return res.json({}); // ファイルがなければ空オブジェクト
-    res.json(JSON.parse(data));
+    if (err) return res.json({}); 
+    try {
+      res.json(JSON.parse(data));
+    } catch (e) {
+      console.error("JSON parse error:", e);
+      res.json({});
+    }
   });
 });
 
 // 暗記度データ保存
 app.post(['/api/status', '/cn-study-words/api/status'], (req, res) => {
-  fs.writeFile(STATUS_FILE, JSON.stringify(req.body), (err) => {
-    if (err) return res.status(500).json({ error: 'failed to save' });
+  fs.writeFile(STATUS_FILE, JSON.stringify(req.body, null, 2), (err) => {
+    if (err) {
+      console.error("Write error:", err);
+      return res.status(500).json({ error: 'failed to save' });
+    }
     res.json({ ok: true });
   });
 });
